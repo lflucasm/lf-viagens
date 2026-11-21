@@ -32,7 +32,13 @@ if os.environ.get("LOG_SEGURO") == "1":
             pass
 
     class _Descarta(_Filtro):
+        # do traceback so passa o NOME da classe da excecao, nunca a mensagem
         def write(self, texto):
+            for linha in texto.splitlines():
+                m = re.match(r"^([A-Za-z_][\w.]*(?:Error|Exception|Exit))\b", linha)
+                if m:
+                    _saida.write("ERRO %s\n" % m.group(1))
+            _saida.flush()
             return len(texto)
 
     sys.stdout = _Filtro()
