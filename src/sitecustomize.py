@@ -22,7 +22,8 @@ if os.environ.get("LOG_SEGURO") == "1":
     class _Filtro:
         def write(self, texto):
             for linha in texto.splitlines():
-                if re.fullmatch(r"\d{1,6}", linha.strip()):
+                # numero puro, ou o aviso de variavel faltando (so tem nome de variavel)
+                if re.fullmatch(r"\d{1,6}|ERRO: variavel de ambiente [A-Z0-9_]+ nao definida\.", linha.strip()):
                     _saida.write(linha.strip() + "\n")
             _saida.flush()
             return len(texto)
