@@ -1,0 +1,51 @@
+{
+  "_fonte": "Smiles (smiles.com.br/mfe/emissao-passagem) — capturado 2026-08-30, GRU-REC 2026-12-12, 1 adt, ONE_WAY. Slice de 2 de 12 flightList[].",
+  "requestedFlightSegmentList": [
+    {
+      "type": "SEGMENT_1",
+      "flightList": [
+        {
+          "uid": "qcktn4nufa",
+          "cabin": "ECONOMIC",
+          "stops": 0,
+          "sourceGDS": "G3",
+          "departure": { "date": "2026-12-12T13:25:00", "airport": { "code": "GRU", "name": "Guarulhos", "city": "São Paulo" } },
+          "arrival": { "date": "2026-12-12T16:30:00", "airport": { "code": "REC", "name": "Gilberto Freyre - Guararapes", "city": "Recife" } },
+          "airline": { "code": "G3", "name": "GOL (G3)" },
+          "duration": { "hours": 3, "minutes": 5 },
+          "legList": [ { "flightNumber": "1588", "classOfService": "X" } ],
+          "fareList": [
+            { "baseMiles": 42700, "g3": { "costTax": "35.75", "productClass": "PA" }, "money": 0, "miles": 42700, "type": "SMILES" },
+            { "baseMiles": 42700, "g3": { "costTax": "35.75" }, "money": 0, "miles": 40600, "type": "SMILES_CLUB" },
+            { "baseMiles": 42700, "g3": { "costTax": "35.75" }, "money": 0, "miles": 35000, "type": "SMILES_TIER" },
+            { "baseMiles": 42700, "g3": { "costTax": "35.75" }, "money": 750, "miles": 12900, "type": "SMILES_MONEY" },
+            { "baseMiles": 0, "g3": { "costTax": "35.75", "productClass": "SL" }, "money": 1090.9, "miles": 0, "type": "MONEY" }
+          ],
+          "availableSeats": 9,
+          "type": "SEGMENT_1",
+          "recommended": true
+        },
+        {
+          "uid": "hevs9wwemlr",
+          "cabin": "ECONOMIC",
+          "stops": 1,
+          "airportStop": "GIG",
+          "departure": { "date": "2026-12-12T05:20:00", "airport": { "code": "GRU", "city": "São Paulo" } },
+          "arrival": { "date": "2026-12-12T09:45:00", "airport": { "code": "REC", "city": "Recife" } },
+          "airline": { "code": "G3", "name": "GOL (G3)" },
+          "duration": { "hours": 4, "minutes": 25 },
+          "legList": [ { "flightNumber": "1562" }, { "flightNumber": "1870" } ],
+          "fareList": [
+            { "baseMiles": 65300, "g3": { "costTax": "35.75" }, "money": 0, "miles": 65300, "type": "SMILES" },
+            { "baseMiles": 65300, "g3": { "costTax": "35.75" }, "money": 0, "miles": 60100, "type": "SMILES_CLUB" },
+            { "baseMiles": 0, "g3": { "costTax": "35.75" }, "money": 1090.9, "miles": 0, "type": "MONEY" }
+          ],
+          "type": "SEGMENT_1",
+          "recommended": false
+        }
+      ]
+    }
+  ],
+  "tripTypeRequest": "ONE_WAY",
+  "passenger": { "adults": "1", "children": "0", "infants": "0" }
+}

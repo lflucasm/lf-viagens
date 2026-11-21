@@ -1,0 +1,43 @@
+name: Teste avulso - Azul headless na nuvem
+
+# Diagnostico, nao producao: a Azul ja limitou o IP da agencia uma vez
+# (29/07/2026), entao este teste passa pela quarentena persistente
+# (limitador_cloud.py, tabela limitador_estado no Supabase) antes de abrir
+# o navegador - runner de nuvem e descartavel e nao lembraria bloqueio de
+# ontem sozinho. Sem gatilho automatico de proposito - so dispara na mao,
+# e nunca "so mais uma vez" se falhar.
+on:
+  workflow_dispatch:
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Chrome + Playwright + Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          pip install playwright
+          python3 -m playwright install --with-deps chrome
+
+      - name: Rodar teste
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+        run: xvfb-run -a python3 scripts/teste_azul_headless.py

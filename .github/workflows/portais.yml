@@ -1,0 +1,92 @@
+name: Portais das cias (nuvem)
+
+# LATAM, GOL e Azul num job so (23/10/2026). Antes eram 5 jobs por dia, um
+# por cia e rodada, cada um pagando a propria preparacao e o arredondamento
+# pra cima do minuto. Os workflows de cada cia (checar-*-cloud.yml)
+# continuam existindo SO pro disparo manual e pro botao "checar agora" do
+# site.
+#
+# Duas rodadas por dia, disparadas pelo vigia no pg_cron do Supabase
+# (supabase/migrations/20261023130000_vigia_horario_agencia.sql) - o cron do
+# GitHub atrasava ate 5h (a "das 07h15" rodava ao meio-dia) e podia cair
+# depois das 23h, horario ocioso da agencia:
+#   manha (~07h30): todas as reservas LATAM e GOL + Azul;
+#   tarde (~18h):   so LATAM e GOL que embarcam em ate 7 dias (as distantes
+#                   ja foram conferidas de manha), sem Azul (era 1x por dia).
+#
+# Cada cia roda mesmo se a anterior falhar (`!cancelled()`) e grava o
+# proprio batimento (portal-latam / portal-gol / portal-azul).
+#
+# concurrency: grupo COMPARTILHADO de quem autentica na Volly - a LATAM
+# busca os links no MilhasFlow (refresh_token giratorio de uso unico).
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      rodada:
+        description: "manha = todas as reservas + Azul; tarde = so quem embarca em ate 7 dias"
+        type: choice
+        options: [manha, tarde]
+        default: manha
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  portais:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+      SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+      MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+      MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+      ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+      FILTRO: ${{ github.event.inputs.rodada == 'tarde' && '--dias 7' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Chrome + Playwright + Xvfb
+        run: |
+          # a imagem do GitHub ja traz Xvfb e Chrome - so instala o que faltar
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          pip install playwright
+          if [ ! -x /opt/google/chrome/chrome ]; then
+            python3 -m playwright install --with-deps chrome
+          fi
+
+      - name: Checar LATAM
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        run: xvfb-run -a python3 src/checar_latam_cloud.py $FILTRO
+
+      - name: Checar GOL
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: xvfb-run -a python3 src/checar_gol_cloud.py $FILTRO
+
+      - name: Checar Azul
+        if: ${{ !cancelled() && github.event.inputs.rodada != 'tarde' }}
+        timeout-minutes: 10
+        run: xvfb-run -a python3 src/checar_azul_cloud.py

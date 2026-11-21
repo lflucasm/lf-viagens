@@ -1,0 +1,76 @@
+name: Aplicar na Volly (nuvem)
+
+# Disparado pelo site quando alguem clica "Aplicar na Volly" numa proposta
+# (web/lib/github.ts: dispararAplicacaoVolly). Grava no trecho (`reminders`)
+# a correcao da proposta - a unica escrita do sistema de voos na Volly.
+# Ver src/aplicar_volly_cloud.py.
+#
+# CHAVE: so grava de verdade com a variavel do repositorio APLICAR_VOLLY=real
+# (Settings > Secrets and variables > Actions > Variables). Sem ela, roda em
+# simulacao: confere tudo e so avisa no Telegram o que gravaria. Ligada so
+# com o ok do proprietário (27/09/2026).
+#
+# concurrency: grupo compartilhado de quem autentica na Volly (refresh_token
+# giratorio de uso unico - ver 2026-09-17).
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+on:
+  # schedule movido pro ciclo.yml em 15/10/2026 (cota de minutos do GitHub
+  # Actions) - aqui fica so o disparo manual / pelo site
+  workflow_dispatch:
+    inputs:
+      proposta_id:
+        description: "Id da proposta (vazio = so a fila)"
+        required: false
+        default: ""
+      plano:
+        description: "Forcar simulacao (nunca grava, mesmo com a chave ligada)"
+        type: boolean
+        default: false
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Aplicar
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+          MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+          MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          APLICAR_VOLLY: ${{ vars.APLICAR_VOLLY }}
+          PROPOSTA_ID: ${{ github.event.inputs.proposta_id }}
+          PLANO: ${{ github.event.inputs.plano }}
+        run: |
+          ARGS=""
+          if [ -n "$PROPOSTA_ID" ]; then
+            ARGS="--proposta $PROPOSTA_ID"
+          fi
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          python3 src/aplicar_volly_cloud.py $ARGS

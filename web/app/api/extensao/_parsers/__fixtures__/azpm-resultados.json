@@ -1,0 +1,59 @@
+{
+  "_fonte": "Azul Pelo Mundo (azulpelomundo.voeazul.com.br) — busca por PONTOS, capturado 2026-08-30, GRU-BCN 2026-12-12. Slice de 2 de ~12 departureFlights.flights[].",
+  "data": {
+    "origin": "GRU",
+    "originAirportName": "São Paulo - Guarulhos",
+    "finalDestination": "BCN",
+    "passengers": { "adultNumber": 1, "childNumber": 0, "infantNumber": 0 },
+    "departureFlights": {
+      "date": "12/12/2026",
+      "flights": [
+        {
+          "id": 19,
+          "originAirport": "GRU",
+          "finalDestination": "BCN",
+          "departureDate": "12/12/2026",
+          "departureTime": "18:25",
+          "finalArrivalDate": "13/12/2026",
+          "finalArrivalTime": "09:00",
+          "dateVariation": 1,
+          "firstFlightNumber": 6542,
+          "marketingCarrier": "IB",
+          "prices": [ { "category": "ECONOMY", "passenger": "ADULT", "value": 4378.82, "currency": "BRL", "classType": "PUBLIC" } ],
+          "points": { "value": 304500, "currency": "POINTS" },
+          "ranges": [
+            { "points": 244000, "amount": 930, "level": 1 },
+            { "points": 183000, "amount": 1855, "level": 2 },
+            { "points": 122000, "amount": 2780, "level": 3 },
+            { "points": 61000, "amount": 3705, "level": 4 }
+          ],
+          "connection": 0,
+          "recommendations": [ { "departureCategory": "ECONOMY", "fee": { "total": { "value": 68.61, "currency": "BRL" } }, "validateCompany": "IB" } ]
+        },
+        {
+          "id": 1,
+          "originAirport": "GRU",
+          "finalDestination": "BCN",
+          "departureDate": "12/12/2026",
+          "departureTime": "15:05",
+          "finalArrivalDate": "13/12/2026",
+          "finalArrivalTime": "08:55",
+          "dateVariation": 1,
+          "firstFlightNumber": 58,
+          "marketingCarrier": "UX",
+          "prices": [ { "category": "ECONOMY", "passenger": "ADULT", "value": 2961.67, "currency": "BRL" } ],
+          "points": { "value": 206000, "currency": "POINTS" },
+          "ranges": [
+            { "points": 165000, "amount": 630, "level": 1 },
+            { "points": 41500, "amount": 2510, "level": 4 }
+          ],
+          "connection": 1,
+          "recommendations": [ { "fee": { "total": { "value": 150.25, "currency": "BRL" } }, "validateCompany": "UX" } ]
+        }
+      ]
+    },
+    "returnFlights": { "date": null, "flights": [] },
+    "pagination": { "page": 1, "isFinalPagination": false }
+  },
+  "notifications": []
+}

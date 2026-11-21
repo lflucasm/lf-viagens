@@ -1,0 +1,159 @@
+name: Ciclo de conferencias (nuvem)
+
+# Um job so pras etapas curtas que rodavam cada uma no seu cron (15/10/2026):
+# ingestao, monitor Volly, reconferencia (fila), aplicar na Volly (fila),
+# CRM e malha. Cada uma levava de 2 a 20s, mas o GitHub cobra no minimo
+# 1 min por job - eram ~760 min/mes cobrados pra ~150 de uso real, e a cota
+# gratis (2.000 min/mes, repositorio privado) acabou em 15/10/2026.
+#
+# Os workflows de cada etapa continuam existindo SO pro disparo manual e
+# pros botoes do site (web/lib/github.ts: verificado, aplicar, checar
+# agora) - o schedule deles saiu e virou este. Desde 23/10/2026 o
+# supervisor e a ULTIMA etapa daqui (era um job proprio de hora em hora:
+# 6s de trabalho cobrados como 1 min). Etapa travada nao o impede: cada uma
+# tem timeout proprio e ele roda com `!cancelled()`. Se o ciclo inteiro
+# parar, quem avisa e o vigia do Supabase.
+#
+# Regras:
+# - cada etapa roda mesmo se a anterior falhar (`!cancelled()`) e tem
+#   timeout proprio; cada script grava o proprio batimento, entao o
+#   supervisor ve falha etapa por etapa como antes;
+# - ingestao vem primeiro, entao o monitor ja pega a lista renovada;
+# - reconferencia e aplicar so abrem Chrome / logam na Volly se houver
+#   pedido na fila;
+# - malha so quando a ultima rodada dela tem 10h ou mais (era 2x por dia,
+#   07h e 18h de Brasilia) - src/etapa_vencida.py; com o ciclo so de dia
+#   continua 2x por dia (~07h e ~17h);
+# - portais (LATAM/GOL/Azul) ficam no portais.yml, 2x por dia.
+#
+# concurrency: grupo COMPARTILHADO de quem autentica na Volly
+# (refresh_token giratorio de uso unico em milhasflow_auth_state; ver
+# 2026-09-17) - dois ao mesmo tempo queimam o token um do outro.
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+# Sem `schedule` desde 23/10/2026: quem dispara e o vigia no pg_cron do
+# Supabase, a cada 2h das 07h as 23h de Brasilia e NADA de madrugada - a
+# agencia fica ociosa (supabase/migrations/20261023130000_vigia_horario_agencia.sql).
+# De hora em hora o ciclo era 61% dos minutos do Actions e o mes passava da
+# cota; o cron do GitHub so entregava ~5 rodadas/dia e, junto com o vigia,
+# dobrava rodada.
+on:
+  workflow_dispatch:
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  ciclo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+      SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+      MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+      MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+      ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # leitura do nome do passageiro no voucher em PDF (src/vouchers.py)
+      - name: Instalar pypdf
+        run: pip install pypdf
+
+      - name: Ingestao
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: python3 src/ingestao_cloud.py
+
+      # rajada: todos os voos vencidos, dentro do orcamento da hora
+      - name: Monitor Volly
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: python3 src/checar_volly_cloud.py
+
+      # rodada de garantia: verificado sem proposta (disparo do site
+      # cancelado pelo GitHub quando entra outro no grupo milhasflow-auth)
+      - name: Fila da reconferencia
+        id: fila
+        if: ${{ !cancelled() }}
+        run: echo "n=$(python3 src/reconferir_cloud.py --contar | tail -1)" >> "$GITHUB_OUTPUT"
+
+      # o portal da cia precisa de Chrome real sob Xvfb (anti-bot); a imagem
+      # do GitHub ja traz os dois - so instala o que faltar
+      - name: Instalar Chrome + Playwright + Xvfb
+        if: ${{ !cancelled() && steps.fila.outputs.n != '0' }}
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          pip install playwright
+          if [ ! -x /opt/google/chrome/chrome ]; then
+            python3 -m playwright install --with-deps chrome
+          fi
+
+      - name: Reconferencia
+        if: ${{ !cancelled() && steps.fila.outputs.n != '0' }}
+        timeout-minutes: 10
+        run: xvfb-run -a python3 src/reconferir_cloud.py
+
+      # sem pedido em aberto o script sai sem nem logar na Volly
+      - name: Aplicar na Volly
+        if: ${{ !cancelled() }}
+        timeout-minutes: 5
+        env:
+          APLICAR_VOLLY: ${{ vars.APLICAR_VOLLY }}
+        run: python3 src/aplicar_volly_cloud.py
+
+      # avisos de alteracao da GOL no e-mail do hub (portal da GOL bloqueia o
+      # robo) e de todas as outras cias: src/checar_email_cias_cloud.py
+      - name: E-mail das companhias
+        if: ${{ !cancelled() }}
+        timeout-minutes: 5
+        env:
+          EMAIL_GOL_URL: ${{ secrets.EMAIL_GOL_URL }}
+          EMAIL_GOL_TOKEN: ${{ secrets.EMAIL_GOL_TOKEN }}
+        run: python3 src/checar_email_cias_cloud.py
+
+      # modo real (move card e agenda WhatsApp), como o schedule antigo
+      - name: CRM
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: python3 src/mover_crm_cloud.py
+
+      - name: Malha vencida?
+        id: malha
+        if: ${{ !cancelled() }}
+        run: echo "rodar=$(python3 src/etapa_vencida.py malha 10)" >> "$GITHUB_OUTPUT"
+
+      - name: Malha
+        if: ${{ !cancelled() && steps.malha.outputs.rodar != '0' }}
+        timeout-minutes: 15
+        env:
+          MALHA_API_URL: ${{ secrets.MALHA_API_URL }}
+          MALHA_API_HEADER: ${{ secrets.MALHA_API_HEADER }}
+          MALHA_API_KEY: ${{ secrets.MALHA_API_KEY }}
+        run: python3 src/checar_malha_cloud.py
+
+      # por ultimo, pra ler o batimento de todas as etapas desta rodada
+      - name: Supervisor
+        if: ${{ !cancelled() }}
+        timeout-minutes: 5
+        run: python3 src/supervisor.py

@@ -1,0 +1,119 @@
+name: Monitor Volly (nuvem)
+
+# Aperta o "Monitorar voo" da Volly (edge function flight-status) pelos
+# nossos voos e le o resultado - mesma AeroDataBox da malha, na cota da
+# Volly. Ver src/checar_volly_cloud.py.
+#
+# Desde 15/10/2026 a rodada agendada roda dentro do ciclo de hora em hora
+# (ciclo.yml); este workflow fica pro disparo manual e pro botao "checar
+# agora" do site (--loc). Cada rodada so consulta os voos com leitura vencida
+# (4h/10h/16h/30h conforme o embarque, ritmo_humano.VENCIMENTO_POR_FAIXA),
+# dentro do orcamento da hora (80% do teto da Volly menos o que a
+# organizacao ja consultou - o resto e da equipe). A lista de voos vem da
+# ingestao, que roda antes no mesmo ciclo. A malha pula o que a Volly leu ha
+# menos de 30h.
+#
+# MODO REAL desde 26/09/2026 (pedido do proprietário): alerta no Telegram a cada
+# alteracao. --plano segue disponivel no disparo manual.
+#
+# RAJADA desde 15/10/2026 (pedido do proprietário): a rodada consulta
+# todos os voos vencidos de uma vez (1s entre chamadas), dentro do mesmo
+# orcamento da hora. O ritmo de pessoa (28/09/2026, src/ritmo_humano.py:
+# sessao de 20-45 min com pausas de ~90s) deixava o runner dormindo e gastou
+# 2/3 da cota de minutos do GitHub Actions - em 15/10 a cota acabou e todas
+# as automacoes pararam. --humano segue disponivel no disparo manual.
+#
+# Um job so, dentro da fila milhasflow-auth (refresh_token giratorio de uso
+# unico, compartilhado com mover-crm, portais, reconferir e aplicar - ver
+# 2026-09-17): a rodada em rajada leva poucos minutos, entao renova o token
+# ali mesmo. Cada job cobra no minimo 1 min, por isso nada de etapa `token`
+# separada.
+
+on:
+  # schedule movido pro ciclo.yml em 15/10/2026 (cota de minutos do GitHub
+  # Actions) - aqui fica so o disparo manual / pelo site
+  workflow_dispatch:
+    inputs:
+      plano:
+        description: "Simulacao (resumo no Telegram, sem alerta real)"
+        type: boolean
+        default: false
+      passivo:
+        description: "Nao clicar na Volly, so ler o que ja existe"
+        type: boolean
+        default: false
+      humano:
+        description: "Ritmo de pessoa (sessao com pausas) mesmo no disparo manual"
+        type: boolean
+        default: false
+      limite:
+        description: "Limite de voos (vazio = sem limite)"
+        required: false
+        default: ""
+      loc:
+        description: "So essa(s) reserva(s) (localizador), forcando - botao 'checar agora' do painel"
+        required: false
+        default: ""
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    # rajada: 96 consultas no maximo (orcamento da hora) a ~2s cada; a
+    # sessao humana manual (ate 45 min + atraso) precisa de mais
+    timeout-minutes: ${{ github.event.inputs.humano == 'true' && 55 || 15 }}
+    concurrency:
+      group: milhasflow-auth
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Checar pelo monitor Volly
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+          MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+          MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          PLANO: ${{ github.event.inputs.plano }}
+          PASSIVO: ${{ github.event.inputs.passivo }}
+          HUMANO: ${{ github.event.inputs.humano }}
+          LIMITE: ${{ github.event.inputs.limite }}
+          LOC: ${{ github.event.inputs.loc }}
+        run: |
+          ARGS=""
+          # agendada = rajada (15/10/2026); ritmo de pessoa so se pedir no
+          # disparo manual
+          if [ "$HUMANO" = "true" ]; then
+            ARGS="$ARGS --humano"
+          fi
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          if [ "$PASSIVO" = "true" ]; then
+            ARGS="$ARGS --passivo"
+          fi
+          if [ -n "$LIMITE" ]; then
+            ARGS="$ARGS --limite $LIMITE"
+          fi
+          if [ -n "$LOC" ]; then
+            ARGS="$ARGS --loc $LOC"
+          fi
+          python3 src/checar_volly_cloud.py $ARGS

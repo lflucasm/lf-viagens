@@ -1,0 +1,63 @@
+name: Supervisor (nuvem)
+
+# O "agente mestre" do fluxo na nuvem (parte 5 do spec 2026-09-26): le os
+# batimentos de todas as etapas, a cobertura dos voos e os alertas pendentes,
+# e avisa no Telegram quando algo abre ou normaliza. Resumo diario na rodada
+# das 11h UTC (08h de Brasilia) - a falta dele e o alarme de que o proprio
+# Actions parou. Ver src/supervisor.py.
+#
+# Minuto :05 - longe da ingestao (:00, a cada 2h) e do monitor Volly (:15),
+# pra ler o batimento da rodada anterior ja concluido.
+#
+# SEM concurrency `milhasflow-auth` de proposito: o supervisor so le o
+# painel com a service key e nunca autentica na Volly. Entrar no grupo o
+# faria esperar na fila atras de portal/monitor - justamente quando uma
+# etapa trava e ele mais precisa rodar.
+concurrency:
+  group: supervisor
+  cancel-in-progress: false
+
+# Sem `schedule` desde 23/10/2026: o supervisor roda como ultima etapa do
+# ciclo.yml (so de dia, a cada 2h). Este workflow fica pro disparo manual.
+on:
+  workflow_dispatch:
+    inputs:
+      plano:
+        description: "Simulacao (avalia e imprime, sem Telegram nem escrita)"
+        type: boolean
+        default: false
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  supervisor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Conferir a saude das etapas
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          PLANO: ${{ github.event.inputs.plano }}
+        run: |
+          ARGS=""
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          python3 src/supervisor.py $ARGS

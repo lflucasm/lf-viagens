@@ -1,0 +1,83 @@
+name: Automacao de CRM (Pos-Venda)
+
+# Roda 100% no GitHub Actions, sem servidor: fala direto com o MilhasFlow
+# (Supabase deles) pra mover cards no funil Pos-Venda, e com o Supabase do
+# painel pra guardar o timer dos 2 dias (crm_estagios). Ver
+# src/mover_crm_cloud.py e docs/superpowers/specs/2026-08-24-automacao-crm-
+# milhasflow-design.md.
+#
+# Fase 6 (28/08/2026): modo real ligado no schedule automatico - move os
+# cards de verdade e manda a mensagem de WhatsApp. workflow_dispatch
+# continua default plano=true, pra permitir rodar simulacao pontual pra
+# teste sem afetar o board de verdade.
+#
+# O `schedule:` do GitHub Actions mostrou disparos bem irregulares nesse
+# repositorio (as vezes horas de atraso) - existe tambem um gatilho de
+# reforco externo (Routine no Claude Code Remote) chamando este workflow
+# via workflow_dispatch a cada 2h, independente do schedule nativo. A
+# trava de concorrencia abaixo evita que os dois disparem a mesma rodada
+# ao mesmo tempo por cima um do outro.
+#
+# Grupo COMPARTILHADO com checar-latam-cloud.yml e relatorio-gestao.yml
+# (ver 2026-09-17): os tres autenticam no mesmo milhasflow_auth_state
+# (refresh_token giratorio, uso unico). Duas rodadas simultaneas de
+# workflows DIFERENTES disputavam o mesmo token - quem perdia caia pro
+# login por senha, bloqueado por captcha desde 14/09/2026, derrubando a
+# automacao inteira (causa raiz do funil de pos-venda "quebrado" em
+# 17/09/2026). Mesmo grupo = GitHub Actions enfileira, nunca roda junto.
+on:
+  # schedule movido pro ciclo.yml em 15/10/2026 (cota de minutos do GitHub
+  # Actions) - aqui fica so o disparo manual / pelo site
+  workflow_dispatch:
+    inputs:
+      plano:
+        description: "So mostrar o plano, sem mover nem mandar mensagem"
+        type: boolean
+        default: true
+
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  mover-crm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Mover CRM
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+          MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+          MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # default false no schedule automatico (sem workflow_dispatch,
+          # github.event.inputs.plano vem vazio) - roda de verdade sozinho a
+          # cada 2h. workflow_dispatch manual continua default plano=true
+          # (ver input acima) pra testes pontuais sem afetar o board.
+          PLANO: ${{ github.event.inputs.plano || 'false' }}
+        run: |
+          ARGS=""
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          python3 src/mover_crm_cloud.py $ARGS

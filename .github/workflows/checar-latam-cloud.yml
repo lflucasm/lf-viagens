@@ -1,0 +1,88 @@
+name: Checagem LATAM (nuvem)
+
+# Roda 100% no GitHub Actions, sob Xvfb: o link vem do MilhasFlow (nao de
+# PDF/iCloud) e o Chrome real (canal "chrome", nao headless) passa pelo
+# anti-bot da LATAM - ver src/checar_latam_cloud.py pro raciocinio completo.
+#
+# Roda EM PARALELO ao checar_latam.py do Mac por um periodo de validacao
+# (pedido do proprietário, ate meados de outubro de 2026) - origem propria
+# ("portal-latam-cloud"), nao substitui o Mac ainda.
+#
+# concurrency: grupo COMPARTILHADO com mover-crm.yml e relatorio-gestao.yml
+# (ver 2026-09-17) - os tres autenticam no mesmo milhasflow_auth_state
+# (refresh_token giratorio, uso unico); rodar junto com outro derrubava os
+# dois no login por senha, bloqueado por captcha desde 14/09/2026.
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+on:
+  # sem schedule desde 23/10/2026: a rodada agendada e o portais.yml (as tres
+  # cias num job so); aqui fica o disparo manual e o "checar agora" do site
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: "Limite de pedidos a consultar (vazio = sem limite)"
+        required: false
+        default: ""
+      loc:
+        description: "So essa(s) reserva(s) (localizador), sem limite - botao 'checar agora' do painel"
+        required: false
+        default: ""
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  checar-latam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Chrome + Playwright + Xvfb
+        run: |
+          # a imagem do GitHub ja traz Xvfb e Chrome (15/10/2026: ~35s a
+          # menos por rodada) - so instala o que faltar
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          pip install playwright
+          if [ ! -x /opt/google/chrome/chrome ]; then
+            python3 -m playwright install --with-deps chrome
+          fi
+
+      - name: Checar LATAM
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+          MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+          MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          LIMITE: ${{ github.event.inputs.limite }}
+          LOC: ${{ github.event.inputs.loc }}
+        run: |
+          ARGS=""
+          if [ -n "$LIMITE" ]; then
+            ARGS="$ARGS --limite $LIMITE"
+          fi
+          if [ -n "$LOC" ]; then
+            ARGS="$ARGS --loc $LOC"
+          fi
+          xvfb-run -a python3 src/checar_latam_cloud.py $ARGS

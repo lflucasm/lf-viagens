@@ -1,0 +1,78 @@
+{
+  "_fonte": "Azul (voeazul.com.br/br/pt/home/selecao-voo, cc=PTS) — capturado 2026-08-30, GRU-REC 2026-12-12, 1 adt. Slice de 2 de 5 journeys[].",
+  "data": {
+    "discountType": "FareAndConvenienceFee",
+    "trips": [
+      {
+        "departureStation": "GRU",
+        "arrivalStation": "REC",
+        "std": "2026-12-12T00:00:00",
+        "currencyCode": "BRL",
+        "flightType": "Domestic",
+        "fareInformation": { "lowestPoints": 128000.0, "highestPoints": 128000.0 },
+        "journeys": [
+          {
+            "journeyKey": "QUR_NDIzMn4gfn5HUlV...",
+            "status": { "available": true },
+            "identifier": {
+              "operatedBy": "AD", "carrierCode": "AD", "flightNumber": "4232",
+              "departureStation": "GRU", "arrivalStation": "REC",
+              "std": "2026-12-12T05:00:00", "sta": "2026-12-12T08:00:00",
+              "duration": { "days": 0, "hours": 3, "minutes": 0 }
+            },
+            "fares": [
+              {
+                "available": true,
+                "productClass": { "code": "TE", "category": "Economy", "name": "Azul" },
+                "classOfService": "W",
+                "fareSellKey": "0~W~X~AD~QR90ST~TATE~~0~61~~X",
+                "paxPoints": [
+                  {
+                    "amountLevel": 1,
+                    "levels": [
+                      { "paxType": "ADT", "fareMoney": 0.0, "points": { "amount": 128000.0, "discount": { "applied": true, "amount": 12800.0, "restriction": "DiscountForContactPax" }, "discountedAmount": 115200.0 }, "taxesAndFees": 35.75, "convenienceFee": 39.9, "totalMoney": 75.65, "currencyCode": "BRL" }
+                    ]
+                  },
+                  {
+                    "amountLevel": 3,
+                    "levels": [
+                      { "paxType": "ADT", "fareMoney": 696.0, "points": { "amount": 32000.0, "discountedAmount": 28800.0 }, "taxesAndFees": 35.75, "convenienceFee": 39.9, "totalMoney": 771.65, "currencyCode": "BRL" }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "segments": [ { "equipment": { "name": "Airbus A321 NEO", "type": "32Q" }, "identifier": { "flightNumber": "4232", "departureStation": "GRU", "arrivalStation": "REC", "std": "2026-12-12T05:00:00", "sta": "2026-12-12T08:00:00" } } ]
+          },
+          {
+            "journeyKey": "QUR_Mjc0NH4gfn5HUlV...",
+            "status": { "available": true },
+            "identifier": {
+              "operatedBy": "AD", "carrierCode": "AD", "flightNumber": "2744",
+              "departureStation": "GRU", "arrivalStation": "REC",
+              "std": "2026-12-12T08:25:00", "sta": "2026-12-12T11:25:00",
+              "duration": { "days": 0, "hours": 3, "minutes": 0 }
+            },
+            "fares": [
+              {
+                "available": true,
+                "productClass": { "code": "TE", "category": "Economy", "name": "Azul" },
+                "classOfService": "W",
+                "paxPoints": [
+                  {
+                    "amountLevel": 1,
+                    "levels": [
+                      { "paxType": "ADT", "fareMoney": 0.0, "points": { "amount": 128000.0, "discountedAmount": 115200.0 }, "taxesAndFees": 35.75, "convenienceFee": 39.9, "totalMoney": 75.65, "currencyCode": "BRL" }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "segments": [ { "identifier": { "flightNumber": "2744", "departureStation": "GRU", "arrivalStation": "REC", "std": "2026-12-12T08:25:00", "sta": "2026-12-12T11:25:00" } } ]
+          }
+        ]
+      }
+    ]
+  },
+  "notifications": []
+}

@@ -1,0 +1,77 @@
+name: Checagem Azul (nuvem)
+
+# Roda 100% no GitHub Actions, sob Xvfb - ver src/checar_azul_cloud.py.
+#
+# Roda EM PARALELO ao checar_azul.py do Mac por um periodo de validacao
+# (mesmo acordo da LATAM/GOL) - origem propria ("portal-azul-cloud").
+#
+# CUIDADO REDOBRADO: foi a Azul que limitou o IP da agencia uma vez
+# (29/07/2026). Quarentena persistente no Supabase (limitador_estado),
+# conferida antes de abrir o Chrome - runner de nuvem e descartavel e nao
+# lembraria sozinho um bloqueio da rodada anterior. So um agendamento por
+# dia de proposito (a GOL/LATAM tem dois) - menos volume, menos risco.
+on:
+  # sem schedule desde 23/10/2026: a rodada agendada e o portais.yml (as tres
+  # cias num job so); aqui fica o disparo manual e o "checar agora" do site
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: "Limite de localizadores a consultar (vazio = sem limite)"
+        required: false
+        default: ""
+      loc:
+        description: "So essa(s) reserva(s) (localizador), sem limite"
+        required: false
+        default: ""
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  checar-azul:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Chrome + Playwright + Xvfb
+        run: |
+          # a imagem do GitHub ja traz Xvfb e Chrome (15/10/2026: ~35s a
+          # menos por rodada) - so instala o que faltar
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+          pip install playwright
+          if [ ! -x /opt/google/chrome/chrome ]; then
+            python3 -m playwright install --with-deps chrome
+          fi
+
+      - name: Checar Azul
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          LIMITE: ${{ github.event.inputs.limite }}
+          LOC: ${{ github.event.inputs.loc }}
+        run: |
+          ARGS=""
+          if [ -n "$LIMITE" ]; then
+            ARGS="$ARGS --limite $LIMITE"
+          fi
+          if [ -n "$LOC" ]; then
+            ARGS="$ARGS --loc $LOC"
+          fi
+          xvfb-run -a python3 src/checar_azul_cloud.py $ARGS

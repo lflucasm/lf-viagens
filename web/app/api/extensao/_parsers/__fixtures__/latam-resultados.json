@@ -1,0 +1,56 @@
+{
+  "_fonte": "GET https://www.latamairlines.com/bff/air-offers/v2/offers/search?...&redemption=true (capturado 2026-08-30, GRU-REC 2026-12-12, 1 adt). Slice de 2 de ~50 content[].",
+  "totalElements": 50,
+  "content": [
+    {
+      "summary": {
+        "tags": ["CHEAPEST", "FASTEST"],
+        "stopOvers": 0,
+        "duration": 185,
+        "flightCode": "LA3374",
+        "origin": { "departure": "2026-12-12T07:05:00", "departureTime": "7:05", "iataCode": "GRU", "airport": "Guarulhos Intl.", "city": "São Paulo" },
+        "destination": { "arrival": "2026-12-12T10:10:00", "arrivalTime": "10:10", "iataCode": "REC", "airport": "Guararapes Intl.", "city": "Recife" },
+        "brands": [
+          { "id": "SL", "brandText": "LIGHT", "cabin": { "id": "Y", "label": "Economy" }, "price": { "currency": "LOYALTY_POINTS", "amount": 22664, "displayAmount": " 22.664", "display": "22.664 milhas" }, "priceWithOutTax": { "currency": "BRL", "amount": 815.9 }, "taxes": { "currency": "BRL", "amount": 35.75 } },
+          { "id": "KM", "brandText": "STANDARD", "cabin": { "id": "Y", "label": "Economy" }, "price": { "currency": "LOYALTY_POINTS", "amount": 25636 }, "taxes": { "currency": "BRL", "amount": 35.75 } },
+          { "id": "RY", "brandText": "PREMIUM ECONOMY", "cabin": { "id": "W", "label": "PremiumEconomy" }, "price": { "currency": "LOYALTY_POINTS", "amount": 33548 }, "taxes": { "currency": "BRL", "amount": 35.75 } }
+        ],
+        "lowestBrandText": "LIGHT",
+        "lowestPrice": { "currency": "LOYALTY_POINTS", "amount": 22664, "display": "22.664 milhas" },
+        "flightOperators": ["LATAM Airlines Brasil"],
+        "isInterlinealFlight": false
+      },
+      "itinerary": [
+        { "flight": { "flightNumber": 3374, "airlineCode": "LA" }, "origin": "GRU", "destination": "REC", "departure": "2026-12-12T07:05:00", "arrival": "2026-12-12T10:10:00" }
+      ],
+      "newPrices": [
+        { "fare": 22664, "taxes": 35.75, "total": 22664 },
+        { "fare": 25636, "taxes": 35.75, "total": 25636 }
+      ]
+    },
+    {
+      "summary": {
+        "tags": [],
+        "stopOvers": 1,
+        "duration": 475,
+        "flightCode": "LA3263",
+        "origin": { "departure": "2026-12-12T09:15:00", "departureTime": "9:15", "iataCode": "GRU", "city": "São Paulo" },
+        "destination": { "arrival": "2026-12-12T17:10:00", "arrivalTime": "17:10", "iataCode": "REC", "city": "Recife" },
+        "brands": [
+          { "id": "SL", "brandText": "LIGHT", "cabin": { "id": "Y", "label": "Economy" }, "price": { "currency": "LOYALTY_POINTS", "amount": 118719 }, "taxes": { "currency": "BRL", "amount": 35.75 } }
+        ],
+        "lowestBrandText": "LIGHT",
+        "lowestPrice": { "currency": "LOYALTY_POINTS", "amount": 118719 },
+        "flightOperators": ["LATAM Airlines Brasil"],
+        "isInterlinealFlight": false
+      },
+      "itinerary": [
+        { "flight": { "flightNumber": 3263, "airlineCode": "LA" }, "origin": "GRU", "destination": "BSB", "departure": "2026-12-12T09:15:00", "arrival": "2026-12-12T11:00:00" },
+        { "flight": { "flightNumber": 4724, "airlineCode": "LA" }, "origin": "BSB", "destination": "REC", "departure": "2026-12-12T14:35:00", "arrival": "2026-12-12T17:10:00" }
+      ],
+      "newPrices": [{ "fare": 118719, "taxes": 35.75, "total": 118719 }]
+    }
+  ],
+  "promo": { "active": false },
+  "extraDetails": { "X-latam-Track-Id": "5a0a06c1" }
+}

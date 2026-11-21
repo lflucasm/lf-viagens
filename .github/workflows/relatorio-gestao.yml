@@ -1,0 +1,76 @@
+name: Relatorio de gestao (nuvem, sem MCP)
+
+# Le direto no Supabase da Volly (src/volly.py - mesmo caminho que
+# src/milhasflow.py ja usa pro robo de CRM) em vez do MCP pago
+# (volly.com.br/mcp, 1 credito por chamada). Calcula os KPIs em Python
+# (src/gestao.py) e manda o pulso no Telegram + grava o snapshot completo
+# no Supabase do painel (gestao_relatorios) pra uma pagina web ler depois.
+#
+# concurrency: grupo COMPARTILHADO com mover-crm.yml e checar-latam-cloud.yml
+# (ver 2026-09-17) - os tres autenticam no mesmo milhasflow_auth_state
+# (refresh_token giratorio, uso unico); rodar junto com outro derrubava os
+# dois no login por senha, bloqueado por captcha desde 14/09/2026.
+concurrency:
+  group: milhasflow-auth
+  cancel-in-progress: false
+
+on:
+  schedule:
+    # 11:00 UTC = 08:00 America/Sao_Paulo, toda segunda.
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: "Janela do pulso em dias"
+        required: false
+        default: "7"
+      plano:
+        description: "So mostrar o relatorio, sem enviar Telegram nem gravar no painel"
+        type: boolean
+        default: false
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  relatorio-gestao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Gerar relatorio de gestao
+        env:
+          MILHASFLOW_EMAIL: ${{ secrets.MILHASFLOW_EMAIL }}
+          MILHASFLOW_SENHA: ${{ secrets.MILHASFLOW_SENHA }}
+          MILHASFLOW_ANON_KEY: ${{ secrets.MILHASFLOW_ANON_KEY }}
+          ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # VollyChat: so a SEMENTE inicial. Depois da 1a rodada o token
+          # giratorio vive em chat_auth_state (Supabase do painel, ver
+          # migration 20260912180000) - esse secret nunca mais e lido de
+          # fato, mas fica configurado por seguranca (se a tabela for
+          # zerada um dia, precisa recomecar do zero mesmo).
+          CHAT_REFRESH_TOKEN: ${{ secrets.CHAT_REFRESH_TOKEN }}
+          DIAS: ${{ github.event.inputs.dias || '7' }}
+          PLANO: ${{ github.event.inputs.plano }}
+        run: |
+          ARGS="--dias $DIAS"
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          python3 src/relatorio_gestao.py $ARGS

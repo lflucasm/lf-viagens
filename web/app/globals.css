@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+/*
+ * Identidade da LF Viagens: navy profundo + creme da logo (globo com o avião
+ * cruzando), com dourado como único acento — cor de milhas/status, não
+ * decoração. `gray-*` é redefinido pra essa escala navy: todo `bg-gray-900`,
+ * `border-gray-200` etc. que já existia no app vira essa paleta sem precisar
+ * trocar classe por classe. `navy-*`/`cream-*`/`gold-*` ficam disponíveis à
+ * parte pra quando o cromo da marca precisa aparecer explícito (cabeçalho,
+ * hero, botão principal) — esse cromo já era escuro de propósito, então fica
+ * igual nos dois temas.
+ */
+@theme {
+  --color-gray-50: #f4f6f8;
+  --color-gray-100: #e7ebf0;
+  --color-gray-200: #d2d9e2;
+  --color-gray-300: #aebdcc;
+  --color-gray-400: #8395a8;
+  --color-gray-500: #62748a;
+  --color-gray-600: #4a5b6e;
+  --color-gray-700: #384656;
+  --color-gray-800: #263444;
+  --color-gray-900: #1b2634;
+  --color-gray-950: #0f1620;
+
+  --color-navy-950: #0f1620;
+  --color-navy-900: #131c28;
+  --color-navy-800: #1b2634;
+  --color-navy-700: #263444;
+  --color-navy-600: #34465b;
+
+  --color-cream-100: #f0ede6;
+  --color-cream-50: #faf8f3;
+
+  /*
+   * Texto secundário em cima do cromo navy (cabeçalho, hero, cards de
+   * erro) — fixo nos dois temas de propósito, porque esse fundo já era
+   * escuro antes do modo escuro existir e continua escuro nos dois. Não é
+   * a rampa `gray-*` (essa inverte) nem `cream-*` (esse é o texto
+   * primário/marca, mais claro que o secundário precisa ser).
+   */
+  --color-haze-400: #9db0c4;
+  --color-haze-500: #7d93ab;
+
+  --color-gold-600: #a97c2f;
+  --color-gold-500: #c99a3d;
+  --color-gold-400: #dab567;
+  --color-gold-100: #f4e9d3;
+
+  --color-canvas: #faf8f3;
+
+  /*
+   * Cores de estado (texto/ícone; fundo = mesma cor a 10%). Trocam junto com
+   * o tema, como a rampa gray-*, pra um "Aplicada" verde continuar legível
+   * em cima do card navy do modo escuro.
+   */
+  --color-ok: #047857;
+  --color-atencao: #a16207;
+  --color-perigo: #b91c1c;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+}
+
+@theme inline {
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Modo escuro: inverte a rampa `gray-*` (o que era quase-branco vira
+ * quase-preto e vice-versa) e o "branco" dos cards por uma superfície navy
+ * translúcida — como todo texto/borda/card do app já é expresso em
+ * `gray-*`/`white`, essa troca sozinha já escurece o app inteiro sem tocar
+ * em nenhuma página. `--color-canvas` é o fundo da página (por trás dos
+ * cards) — não reaproveita `cream-*` porque esse token também serve de
+ * texto em cima do cabeçalho navy, que continua escuro nos dois temas; virar
+ * preto ali apagaria o texto do cabeçalho.
+ *
+ * Duas portas pro escuro: segue o tema do sistema operacional por padrão
+ * (media query), e o botão de alternar (ThemeToggle) grava a escolha
+ * explícita em `data-theme`, que sempre vence.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-gray-50: #0f1620;
+    --color-gray-100: #1b2634;
+    --color-gray-200: #2a3a4c;
+    --color-gray-300: #3f5164;
+    --color-gray-400: #62748a;
+    --color-gray-500: #8395a8;
+    --color-gray-600: #aebdcc;
+    --color-gray-700: #cbd5e0;
+    --color-gray-800: #e2e8f0;
+    --color-gray-900: #f4f6f8;
+    --color-gray-950: #ffffff;
+    --color-white: rgb(38 52 68 / 90%);
+    --color-canvas: #0f1620;
+    --color-ok: #34d399;
+    --color-atencao: #fbbf24;
+    --color-perigo: #f87171;
+    /* Estados no escuro: fundo/borda viram a cor translúcida sobre o navy e o
+       texto clareia (sem isso bg-green-50 vira um bloco branco no escuro). */
+    --color-green-50: rgb(52 211 153 / 12%);
+    --color-green-100: rgb(52 211 153 / 18%);
+    --color-green-200: rgb(52 211 153 / 28%);
+    --color-green-300: rgb(52 211 153 / 40%);
+    --color-green-700: #6ee7b7;
+    --color-green-800: #a7f3d0;
+    --color-green-900: #d1fae5;
+    --color-red-50: rgb(248 113 113 / 12%);
+    --color-red-100: rgb(248 113 113 / 18%);
+    --color-red-200: rgb(248 113 113 / 28%);
+    --color-red-300: rgb(248 113 113 / 40%);
+    --color-red-600: #ef4444; /* serve de texto no navy e de fundo com texto branco */
+    --color-red-700: #fca5a5;
+    --color-red-800: #fecaca;
+    --color-red-900: #fee2e2;
+    --color-amber-50: rgb(251 191 36 / 12%);
+    --color-amber-100: rgb(251 191 36 / 18%);
+    --color-amber-200: rgb(251 191 36 / 28%);
+    --color-amber-300: rgb(251 191 36 / 40%);
+    --color-amber-700: #fcd34d;
+    --color-amber-800: #fde68a;
+    --color-amber-900: #fef3c7;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-gray-50: #0f1620;
+  --color-gray-100: #1b2634;
+  --color-gray-200: #2a3a4c;
+  --color-gray-300: #3f5164;
+  --color-gray-400: #62748a;
+  --color-gray-500: #8395a8;
+  --color-gray-600: #aebdcc;
+  --color-gray-700: #cbd5e0;
+  --color-gray-800: #e2e8f0;
+  --color-gray-900: #f4f6f8;
+  --color-gray-950: #ffffff;
+  --color-white: rgb(38 52 68 / 90%);
+  --color-canvas: #0f1620;
+  --color-ok: #34d399;
+  --color-atencao: #fbbf24;
+  --color-perigo: #f87171;
+  /* Estados no escuro: fundo/borda viram a cor translúcida sobre o navy e o
+     texto clareia (sem isso bg-green-50 vira um bloco branco no escuro). */
+  --color-green-50: rgb(52 211 153 / 12%);
+  --color-green-100: rgb(52 211 153 / 18%);
+  --color-green-200: rgb(52 211 153 / 28%);
+  --color-green-300: rgb(52 211 153 / 40%);
+  --color-green-700: #6ee7b7;
+  --color-green-800: #a7f3d0;
+  --color-green-900: #d1fae5;
+  --color-red-50: rgb(248 113 113 / 12%);
+  --color-red-100: rgb(248 113 113 / 18%);
+  --color-red-200: rgb(248 113 113 / 28%);
+  --color-red-300: rgb(248 113 113 / 40%);
+  --color-red-600: #ef4444; /* serve de texto no navy e de fundo com texto branco */
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+  --color-red-900: #fee2e2;
+  --color-amber-50: rgb(251 191 36 / 12%);
+  --color-amber-100: rgb(251 191 36 / 18%);
+  --color-amber-200: rgb(251 191 36 / 28%);
+  --color-amber-300: rgb(251 191 36 / 40%);
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+}
+
+body {
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--color-gold-400);
+  color: var(--color-navy-950);
+}
+
+/*
+ * A logo oficial (globo com o avião, textura de mapa-múndi) como fundo das
+ * superfícies navy — sobreposição escura por cima pra manter texto e o
+ * ícone LogoLF legíveis sobre a foto.
+ */
+.bg-marca {
+  background-image: linear-gradient(rgba(15, 22, 32, 0.86), rgba(15, 22, 32, 0.86)),
+    url("/lf-viagens.jpg");
+  background-size: cover;
+  background-position: center;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}

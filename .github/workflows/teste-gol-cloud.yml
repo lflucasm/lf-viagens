@@ -1,0 +1,38 @@
+name: Teste avulso - GOL headless na nuvem
+
+# Diagnostico, nao producao: prova se a taxa de sucesso da GOL (hoje ~50%
+# no Mac, IP residencial) piora rodando de um IP de datacenter, antes de
+# investir em checar_gol_cloud.py. Sem gatilho automatico de proposito -
+# so dispara na mao. Rode algumas vezes pra ver a taxa, nao so uma.
+on:
+  workflow_dispatch:
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Chrome + Playwright + Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          pip install playwright
+          python3 -m playwright install --with-deps chrome
+
+      - name: Rodar teste
+        run: xvfb-run -a python3 scripts/teste_gol_headless.py

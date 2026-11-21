@@ -1,0 +1,74 @@
+name: Checagem de malha (nuvem)
+
+# Roda 100% no GitHub Actions, sem servidor: chama a API da AeroDataBox e
+# le/escreve direto no Supabase do painel web. Ver src/checar_malha_cloud.py.
+#
+# Desde 26/09/2026 e so RESERVA do monitor Volly: consulta so voo que o
+# monitor Volly nao leu com confianca nas ultimas 12h (o --loc do botao
+# "checar agora" consulta mesmo assim). Grava batimento `malha`.
+on:
+  # schedule movido pro ciclo.yml em 15/10/2026 (cota de minutos do GitHub
+  # Actions) - aqui fica so o disparo manual / pelo site
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: "Limite de voos a consultar (vazio = sem limite)"
+        required: false
+        default: ""
+      plano:
+        description: "So mostrar o plano, sem consultar nem gravar"
+        type: boolean
+        default: false
+      loc:
+        description: "So essa(s) reserva(s) (localizador), sem rotacao - botao 'checar agora' do painel"
+        required: false
+        default: ""
+
+env:
+  PYTHONPATH: src
+  LOG_SEGURO: "1"
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  ORGANIZATION_ID: ${{ secrets.ORGANIZATION_ID }}
+  CHAT_URL: ${{ secrets.CHAT_URL }}
+  CHAT_ANON_KEY: ${{ secrets.CHAT_ANON_KEY }}
+  CHAT_ORGANIZATION_ID: ${{ secrets.CHAT_ORGANIZATION_ID }}
+
+jobs:
+  checar-malha:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Checar malha
+        env:
+          SUPABASE_WEB_URL: ${{ secrets.SUPABASE_WEB_URL }}
+          SUPABASE_WEB_SERVICE_KEY: ${{ secrets.SUPABASE_WEB_SERVICE_KEY }}
+          MALHA_API_URL: ${{ secrets.MALHA_API_URL }}
+          MALHA_API_HEADER: ${{ secrets.MALHA_API_HEADER }}
+          MALHA_API_KEY: ${{ secrets.MALHA_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # URL publica do painel, so para o link "ver no painel" do alerta -
+          # nao e segredo, mas fica aqui (nao cravada no .py) para trocar sem
+          # deploy se o dominio mudar.
+          PAINEL_WEB_URL: https://lf-viagens-admin.vercel.app
+          LIMITE: ${{ github.event.inputs.limite }}
+          PLANO: ${{ github.event.inputs.plano }}
+          LOC: ${{ github.event.inputs.loc }}
+        run: |
+          ARGS=""
+          if [ -n "$LIMITE" ]; then
+            ARGS="$ARGS --limite $LIMITE"
+          fi
+          if [ "$PLANO" = "true" ]; then
+            ARGS="$ARGS --plano"
+          fi
+          if [ -n "$LOC" ]; then
+            ARGS="$ARGS --loc $LOC"
+          fi
+          python3 src/checar_malha_cloud.py $ARGS
