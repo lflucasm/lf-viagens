@@ -13,6 +13,12 @@ import os
 import re
 import sys
 
+# Secrets colados no GitHub costumam entrar com quebra de linha no fim; tira
+# espaco das pontas de toda variavel (vale com ou sem LOG_SEGURO).
+for _k, _v in list(os.environ.items()):
+    if _v != _v.strip():
+        os.environ[_k] = _v.strip()
+
 if os.environ.get("LOG_SEGURO") == "1":
     _nulo = os.open(os.devnull, os.O_WRONLY)
     _saida = os.fdopen(os.dup(1), "w")
