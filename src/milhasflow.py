@@ -162,15 +162,26 @@ class MilhasFlow(object):
         dados = json.dumps(corpo).encode("utf-8") if corpo is not None else None
         req = urllib.request.Request(url, data=dados, headers=headers, method=metodo)
 
-        try:
-            with urllib.request.urlopen(req, timeout=45) as resp:
-                bruto = resp.read().decode("utf-8")
-                return json.loads(bruto) if bruto else None
-        except urllib.error.HTTPError as e:
-            detalhe = e.read().decode("utf-8", "replace")[:400]
-            raise ErroMilhasFlow("HTTP %s em %s\n%s" % (e.code, url.split("?")[0], detalhe))
-        except urllib.error.URLError as e:
-            raise ErroMilhasFlow("Falha de conexao: %s" % e.reason)
+        # 24/11/2026: HTTP 522 (Cloudflare) do Supabase do MilhasFlow derrubou
+        # ingestao e CRM numa rodada. So GET (idempotente) tenta de novo.
+        tentativas = 3 if metodo == "GET" else 1
+        for n in range(tentativas):
+            ultima = n == tentativas - 1
+            try:
+                with urllib.request.urlopen(req, timeout=45) as resp:
+                    bruto = resp.read().decode("utf-8")
+                    return json.loads(bruto) if bruto else None
+            except urllib.error.HTTPError as e:
+                if not ultima and (e.code >= 500 or e.code == 429):
+                    time.sleep(3 * (n + 1))
+                    continue
+                detalhe = e.read().decode("utf-8", "replace")[:400]
+                raise ErroMilhasFlow("HTTP %s em %s\n%s" % (e.code, url.split("?")[0], detalhe))
+            except urllib.error.URLError as e:
+                if not ultima:
+                    time.sleep(3 * (n + 1))
+                    continue
+                raise ErroMilhasFlow("Falha de conexao: %s" % e.reason)
 
     # ------------------------------------------------------------------ Auth
 
