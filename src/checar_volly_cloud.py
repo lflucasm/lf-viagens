@@ -19,8 +19,8 @@ Nao e monitor automatico - so atualiza quando alguem clica. Por isso este
 script clica por nos, de hora em hora (checar-volly-cloud.yml): para cada
 voo elegivel (ativo, futuro, sem `incompleto`) cuja leitura da Volly venceu
 (10h, ou 4h se embarca em menos de 24h), mais proximo primeiro, dentro do
-orcamento da rodada (80% do teto por hora da Volly menos o que a
-organizacao ja consultou na ultima hora), chama a edge function com
+orcamento da rodada (60% do teto DIARIO da Volly, 30 reais/dia, menos o que a
+organizacao ja consultou hoje; no maximo 6 reais por rodada), chama a edge function com
 force=true. A lista de voos vem da ingestao (ingestao_cloud.py). Depois
 le os snapshots (inclusive os que outras agencias atualizaram) e passa o
 `raw` pelo mesmo caminho da malha (checar_malha_cloud.processar_contratos),
@@ -89,19 +89,22 @@ HORAS_VENCIMENTO_PERTO = 4
 HORAS_EMBARQUE_PERTO = 24
 PAUSA_ENTRE_CHAMADAS_S = 1.0
 
-# Teto por hora da flight-status, por organizacao ("Limite de consultas por
-# hora atingido"). Medido em 27/09/2026: sao 120 consultas REAIS por hora
-# (`flight_status_lookups.cache_hit = false`). Consulta que a Volly responde
-# do cache dela nao conta - nem com force=true: 1.081 chamadas forcadas no
-# mesmo voo em 25 min viraram 1.081 cache_hit sem bloqueio nenhum. Na
-# janela de 25/09 o bloqueio veio exatamente na 120a consulta real.
-LIMITE_VOLLY_HORA = 120
-# O teto e o MESMO do botao que a equipe usa na mao: o robo fica com no
-# maximo 80% dele, e ainda desconta o que a organizacao ja consultou na
-# ultima hora (flight_status_lookups inclui os cliques da equipe).
-FOLGA_EQUIPE = 0.2
+# Teto da flight-status ("Monitorar voo"): 30 consultas REAIS por DIA por
+# agencia ("A agencia ja fez as 30 consultas de voo de hoje. Amanha libera de
+# novo."), medido em 24/11/2026 - o robo gastava as 30 em 3 min logo apos as
+# 07h, todo dia, e a equipe ficava sem o botao o resto do dia. (Em 27/09 se
+# achava que eram 120 por hora.) Resposta do cache da Volly (`cache_hit` /
+# `fromCache`) nao conta - nem com force. O dia vira na meia-noite de Brasilia.
+LIMITE_VOLLY_DIA = 30
+# O teto e o MESMO do botao da equipe: o robo (e quem ja consultou hoje, equipe
+# inclusa) fica com no maximo 60% dele = 18; os outros 12 sao da equipe.
+FOLGA_EQUIPE = 0.4
+# Teto de consultas reais por rodada: com o ciclo de hora em hora, as 18 do dia
+# se espalham em vez de acabar nas primeiras rodadas (voo que fica urgente a
+# tarde ainda acha orcamento). Cache da Volly nao entra na conta.
+MAX_REAIS_POR_RODADA = 6
 
-SINAL_DE_LIMITE = "Limite de consultas"
+SINAIS_DE_LIMITE = ("limite de consultas", "consultas de voo de hoje")
 
 # Quantos voos sem leitura vao nominalmente no batimento (o resto so conta)
 MAX_LISTA_SEM_LEITURA = 30
@@ -126,10 +129,10 @@ def vencido(idade, horas_ate_embarque):
     return ritmo_humano.vencido(idade, horas_ate_embarque)
 
 
-def orcamento_da_rodada(lookups_ultima_hora, limite_hora=LIMITE_VOLLY_HORA):
-    """Chamadas que esta rodada pode fazer: 80% do teto por hora menos o que
-    a organizacao (robo + equipe) ja consultou na ultima hora. Nunca negativo."""
-    return max(0, int(limite_hora * (1 - FOLGA_EQUIPE)) - int(lookups_ultima_hora or 0))
+def orcamento_da_rodada(lookups_hoje, limite_dia=LIMITE_VOLLY_DIA):
+    """Consultas REAIS que esta rodada pode fazer: 60% do teto do dia menos o
+    que a organizacao (robo + equipe) ja consultou hoje. Nunca negativo."""
+    return max(0, int(limite_dia * (1 - FOLGA_EQUIPE)) - int(lookups_hoje or 0))
 
 
 def lookups_recentes(mf, horas=HORAS_VENCIMENTO, agora=None):
@@ -145,19 +148,17 @@ def lookups_recentes(mf, horas=HORAS_VENCIMENTO, agora=None):
     })
 
 
-def contar_ultima_hora(lookups, agora=None):
-    """Quantos lookups caem na ultima hora.
-
-    So as consultas reais (`cache_hit = false`): e so elas que o teto da
-    Volly conta (medido em 27/09/2026, ver LIMITE_VOLLY_HORA).
-    """
+def contar_hoje(lookups, agora=None):
+    """Quantos lookups REAIS (`cache_hit = false`, so esses contam no teto da
+    Volly) caem no dia de hoje, que vira na meia-noite de Brasilia."""
     agora = agora or datetime.now(timezone.utc)
+    meia_noite = agora.astimezone(ritmo_humano.BRT).replace(hour=0, minute=0, second=0, microsecond=0)
     total = 0
     for l in lookups:
         if l.get("cache_hit"):
             continue
         idade = idade_horas(l.get("created_at"), agora)
-        if idade is not None and idade <= 1:
+        if idade is not None and agora - timedelta(hours=idade) >= meia_noite:
             total += 1
     return total
 
@@ -210,7 +211,7 @@ def _sem_acento(texto):
 def motivo_do_erro(erro):
     """Erro da flight-status -> motivo de "sem leitura" do batimento."""
     texto = _sem_acento(erro)
-    if SINAL_DE_LIMITE.lower() in texto:
+    if any(sinal in texto for sinal in SINAIS_DE_LIMITE):
         return "limite"
     if "trecho" in texto and "encontrado" in texto:
         return "trecho_nao_encontrado"
@@ -571,15 +572,16 @@ def rodar(mf, supabase_url, service_key, b, limite, plano, passivo, so_esses,
     # 1) clicar "Monitorar voo" onde a leitura da Volly venceu
     snaps = snapshots_por_numero(mf, grupos)
     chamadas = 0
+    reais = 0             # so as consultas fora do cache gastam o teto da Volly
     limite_batido = False
     motivos = {}          # chave -> por que nao ha leitura nova (se faltar)
     orcamento = lookups = None
     if not passivo:
         recentes = lookups_recentes(mf)
         tentativas = ultimas_tentativas(recentes)
-        lookups = contar_ultima_hora(recentes)
-        orcamento = orcamento_da_rodada(lookups)
-        print("Consultas da org na ultima hora %d -> orcamento da rodada %d%s" % (
+        lookups = contar_hoje(recentes)
+        orcamento = min(orcamento_da_rodada(lookups), MAX_REAIS_POR_RODADA)
+        print("Consultas reais da org hoje %d -> orcamento da rodada %d%s" % (
             lookups, orcamento, " (ignorado com --loc)" if so_esses else ""))
         reminders = reminders_por_chave(mf)
 
@@ -645,7 +647,7 @@ def rodar(mf, supabase_url, service_key, b, limite, plano, passivo, so_esses,
             chave = item["chave"]
             # --loc e o botao "checar agora" da equipe: usa a folga dela, entao
             # nao respeita o orcamento do robo - so a parada da propria Volly
-            if limite_batido or (not so_esses and chamadas >= orcamento):
+            if limite_batido or (not so_esses and reais >= orcamento):
                 motivos[chave] = "limite"
                 continue
             if sessao and sessao.get("maximo") is not None and chamadas >= sessao["maximo"]:
@@ -666,6 +668,8 @@ def rodar(mf, supabase_url, service_key, b, limite, plano, passivo, so_esses,
             # devolve cache mais velho que a validade da leitura deste voo.
             resposta, erro = mf.consultar_status_voo(item["reminder"], forcar=bool(so_esses))
             chamadas += 1
+            if not erro and not (resposta or {}).get("fromCache"):
+                reais += 1
             if not erro and not so_esses and (resposta or {}).get("fromCache"):
                 idade_cache = idade_horas((resposta or {}).get("updatedAt"))
                 if idade_cache is None or idade_cache >= ritmo_humano.horas_de_validade(item["horas"]):
@@ -675,6 +679,8 @@ def rodar(mf, supabase_url, service_key, b, limite, plano, passivo, so_esses,
                         time.sleep(rng.uniform(15, 45) if sessao else PAUSA_ENTRE_CHAMADAS_S)
                     resposta, erro = mf.consultar_status_voo(item["reminder"], forcar=True)
                     chamadas += 1
+                    if not erro and not (resposta or {}).get("fromCache"):
+                        reais += 1
             if erro:
                 print("       %s" % erro)
                 motivos[chave] = motivo_do_erro(erro)
@@ -795,7 +801,7 @@ def resumo_batimento(chamadas, orcamento, lookups, limite_batido, sem_leitura,
     return {
         "chamadas": chamadas,
         "orcamento": orcamento,
-        "lookups_ultima_hora": lookups,
+        "lookups_hoje": lookups,
         "limite_batido": bool(limite_batido),
         "incompletos": incompletos,
         "sem_leitura": len(sem_leitura),
