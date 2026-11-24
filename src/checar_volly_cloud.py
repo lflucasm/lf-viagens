@@ -19,8 +19,8 @@ Nao e monitor automatico - so atualiza quando alguem clica. Por isso este
 script clica por nos, de hora em hora (checar-volly-cloud.yml): para cada
 voo elegivel (ativo, futuro, sem `incompleto`) cuja leitura da Volly venceu
 (10h, ou 4h se embarca em menos de 24h), mais proximo primeiro, dentro do
-orcamento da rodada (60% do teto DIARIO da Volly, 30 reais/dia, menos o que a
-organizacao ja consultou hoje; no maximo 6 reais por rodada), chama a edge function com
+orcamento da rodada (teto DIARIO da Volly, 30 reais/dia, menos o que a
+organizacao ja consultou hoje; no maximo 4 reais por rodada), chama a edge function com
 force=true. A lista de voos vem da ingestao (ingestao_cloud.py). Depois
 le os snapshots (inclusive os que outras agencias atualizaram) e passa o
 `raw` pelo mesmo caminho da malha (checar_malha_cloud.processar_contratos),
@@ -96,13 +96,14 @@ PAUSA_ENTRE_CHAMADAS_S = 1.0
 # achava que eram 120 por hora.) Resposta do cache da Volly (`cache_hit` /
 # `fromCache`) nao conta - nem com force. O dia vira na meia-noite de Brasilia.
 LIMITE_VOLLY_DIA = 30
-# O teto e o MESMO do botao da equipe: o robo (e quem ja consultou hoje, equipe
-# inclusa) fica com no maximo 60% dele = 18; os outros 12 sao da equipe.
-FOLGA_EQUIPE = 0.4
-# Teto de consultas reais por rodada: com o ciclo de hora em hora, as 18 do dia
-# se espalham em vez de acabar nas primeiras rodadas (voo que fica urgente a
-# tarde ainda acha orcamento). Cache da Volly nao entra na conta.
-MAX_REAIS_POR_RODADA = 6
+# O teto e o MESMO do botao da equipe. Decisao do Lucas (24/11/2026): o robo
+# pode gastar todas as 30 (sem folga reservada) - o que a equipe ja consultou
+# hoje sai do orcamento do robo.
+FOLGA_EQUIPE = 0.0
+# Teto de consultas reais por rodada: com o ciclo de hora em hora, as 30 do dia
+# se espalham (~8 rodadas) em vez de acabar logo de manha (voo que fica urgente
+# a tarde ainda acha orcamento). Cache da Volly nao entra na conta.
+MAX_REAIS_POR_RODADA = 4
 
 SINAIS_DE_LIMITE = ("limite de consultas", "consultas de voo de hoje")
 
@@ -130,8 +131,8 @@ def vencido(idade, horas_ate_embarque):
 
 
 def orcamento_da_rodada(lookups_hoje, limite_dia=LIMITE_VOLLY_DIA):
-    """Consultas REAIS que esta rodada pode fazer: 60% do teto do dia menos o
-    que a organizacao (robo + equipe) ja consultou hoje. Nunca negativo."""
+    """Consultas REAIS que esta rodada pode fazer: teto do dia menos o que a
+    organizacao (robo + equipe) ja consultou hoje. Nunca negativo."""
     return max(0, int(limite_dia * (1 - FOLGA_EQUIPE)) - int(lookups_hoje or 0))
 
 
