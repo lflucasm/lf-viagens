@@ -71,7 +71,6 @@ ETAPAS_VOLLY = ("ingestao", "monitor-volly", "portal-latam", "reconferencia", "a
 JANELA_ETAPA_H = {
     "malha": 20,
     "portal-latam": 20,
-    "portal-gol": 20,
     "portal-azul": 30,
     "email-cias": 8,
 }
@@ -706,7 +705,7 @@ def aplicar_estado(supabase_url, service_key, telegram_token, telegram_chat,
 
 # ------------------------------------------------------------ resumo diario
 
-ETAPAS_RESUMO = ("ingestao", "monitor-volly", "malha", "portal-latam", "portal-gol",
+ETAPAS_RESUMO = ("ingestao", "monitor-volly", "malha", "portal-latam",
                  "portal-azul")
 
 
